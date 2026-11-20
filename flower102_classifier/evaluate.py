@@ -6,8 +6,9 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from config import Config
-from dataset import get_transforms
+from dataset import get_transforms,has_class_folders
 from model import build_model
+
 
 
 @torch.no_grad()
@@ -17,7 +18,8 @@ def evaluate_test():
     idx_to_name = ckpt["idx_to_name"]
 
     _, eval_tf = get_transforms(ckpt["img_size"], ckpt["mean"], ckpt["std"])
-    test_ds = datasets.ImageFolder(cfg.TEST_DIR, transform=eval_tf)
+    eval_dir = cfg.TEST_DIR if has_class_folders(cfg.TEST_DIR) else cfg.VALID_DIR
+    test_ds = datasets.ImageFolder(eval_dir, transform=eval_tf)
     test_loader = DataLoader(test_ds, batch_size=cfg.BATCH_SIZE, shuffle=False, num_workers=cfg.NUM_WORKERS)
 
     model = build_model(ckpt["model_name"], ckpt["num_classes"], ckpt["dropout"], pretrained=False)

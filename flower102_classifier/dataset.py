@@ -39,13 +39,16 @@ def build_idx_to_name(class_to_idx: Dict[str, int], cat_to_name_path: Path) -> D
         idx_to_name[idx] = cat_to_name[folder_id]
     return idx_to_name
 
-
+def has_class_folders(directory: Path) -> bool:
+    return directory.exists() and any(
+        p.is_dir() and not p.name.startswith(".") for p in directory.iterdir()
+    )
 def create_dataloaders(cfg: Config) -> Tuple[DataLoader, DataLoader, DataLoader, Dict[str, int], Dict[int, str]]:
     train_tf, eval_tf = get_transforms(cfg.IMG_SIZE, cfg.MEAN, cfg.STD)
 
     train_ds = datasets.ImageFolder(cfg.TRAIN_DIR, transform=train_tf)
     valid_ds = datasets.ImageFolder(cfg.VALID_DIR, transform=eval_tf)
-    test_ds = datasets.ImageFolder(cfg.TEST_DIR, transform=eval_tf) if cfg.TEST_DIR.exists() else None
+    test_ds = datasets.ImageFolder(cfg.TEST_DIR, transform=eval_tf) if has_class_folders(cfg.TEST_DIR) else None
 
     assert train_ds.class_to_idx == valid_ds.class_to_idx, (
         "Danh sách thư mục lớp giữa train và valid không khớp nhau!"
