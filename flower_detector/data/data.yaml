@@ -1,0 +1,13 @@
+train: /content/Flowers/data/train/images
+val: /content/Flowers/data/valid/images
+test: /content/Flowers/data/test/images
+
+nc: 1
+names: ['flower']
+
+roboflow:
+  workspace: yue-xing-dvchh
+  project: yolov8-flowers-detection
+  version: 2
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/yue-xing-dvchh/yolov8-flowers-detection/dataset/2

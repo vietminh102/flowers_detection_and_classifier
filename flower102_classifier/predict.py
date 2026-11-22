@@ -45,7 +45,7 @@ class Flower102Predictor:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--image", type=str, required=True, help="Đường dẫn ảnh hoa")
+    parser.add_argument("--image", type=str, required=True, help=r"Duong dan đến ảnh hoa")
     parser.add_argument("--ckpt", type=str, default="checkpoints/best_model.pth")
     parser.add_argument("--topk", type=int, default=5)
     args = parser.parse_args()

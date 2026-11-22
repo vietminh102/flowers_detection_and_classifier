@@ -1,0 +1,14 @@
+artifact_uri: file:///D:/Python/ComputerVison/Flowers/flower_detector/runs/mlflow/949119107917961951/d59f8141aac947d4b2645e7fa01a7666/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '949119107917961951'
+lifecycle_stage: active
+run_id: d59f8141aac947d4b2645e7fa01a7666
+run_name: flower_yolo
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1795337515130
+status: 1
+tags: []
+user_id: Vietil
