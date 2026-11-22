@@ -23,3 +23,5 @@ venv/
 flower_detector/data/
 flower_detector/runs/
 
+extra_data/
+data_merged/
