@@ -46,41 +46,72 @@ def main():
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--batch", type=int, default=16)
     parser.add_argument("--workers", type=int, default=int(os.getenv("YOLO_NUM_WORKERS", "2")))
+    parser.add_argument("--project", type=str, default=os.getenv("YOLO_PROJECT_DIR", "runs"))
+    parser.add_argument("--name", type=str, default="flower_oiv7")
+    parser.add_argument(
+        "--resume",
+        nargs="?",
+        const="auto",
+        default=None,
+        help="Truyền --resume để tự tìm last.pt, hoặc --resume /duong/dan/last.pt",
+    )
     parser.add_argument("--save-best", type=str, default=os.getenv("YOLO_SAVE_BEST", "checkpoints/best_yolo.pt"))
     args = parser.parse_args()
 
+    # Luôn tạo lại data_resolved.yaml trước (tránh lỗi thiếu file yaml khi resume trên Colab mới)
     resolved_yaml = inspect_and_prepare_yaml(Path(args.data_dir))
-    model = YOLO(args.weights)
+    project_dir = Path(args.project).resolve()
 
-    results = model.train(
-        data=str(resolved_yaml),
-        epochs=args.epochs,
-        imgsz=args.imgsz,
-        batch=args.batch,
-        workers=args.workers,
-        patience=20,
-        optimizer="AdamW",
-        lr0=0.001,
-        lrf=0.01,
-        cos_lr=True,
-        amp=True,
-        hsv_h=0.015,
-        hsv_s=0.6,
-        hsv_v=0.4,
-        degrees=15.0,
-        scale=0.6,
-        fliplr=0.5,
-        mosaic=1.0,
-        mixup=0.1,
-        copy_paste=0.15,
-        erasing=0.2,
-        close_mosaic=10,
-        project="runs",
-        name="flower_oiv7",
-        exist_ok=True,
-    )
+    # Xác định file checkpoint nếu bật chế độ tiếp tục train
+    resume_ckpt = None
+    if args.resume == "auto":
+        candidate = project_dir / args.name / "weights" / "last.pt"
+        if candidate.exists():
+            resume_ckpt = candidate
+        else:
+            print(f"Chưa tìm thấy {candidate} -> Bắt đầu train mới từ đầu.")
+    elif args.resume:
+        resume_ckpt = Path(args.resume).resolve()
+        if not resume_ckpt.exists():
+            raise FileNotFoundError(f"Không tìm thấy checkpoint để resume: {resume_ckpt}")
 
-    best_pt = Path(results.save_dir) / "weights" / "best.pt"
+    if resume_ckpt is not None:
+        print(f"\n=== TIẾP TỤC HUẤN LUYỆN TỪ: {resume_ckpt} ===")
+        model = YOLO(str(resume_ckpt))
+        model.train(resume=True)
+    else:
+        print(f"\n=== BẮT ĐẦU HUẤN LUYỆN MỚI ({args.weights}) ===")
+        model = YOLO(args.weights)
+        model.train(
+            data=str(resolved_yaml),
+            epochs=args.epochs,
+            imgsz=args.imgsz,
+            batch=args.batch,
+            workers=args.workers,
+            patience=20,
+            optimizer="AdamW",
+            lr0=0.001,
+            lrf=0.01,
+            cos_lr=True,
+            amp=True,
+            hsv_h=0.015,
+            hsv_s=0.6,
+            hsv_v=0.4,
+            degrees=15.0,
+            scale=0.6,
+            fliplr=0.5,
+            mosaic=1.0,
+            mixup=0.1,
+            copy_paste=0.15,
+            erasing=0.2,
+            close_mosaic=10,
+            project=str(project_dir),
+            name=args.name,
+            exist_ok=True,
+        )
+
+    save_dir = Path(model.trainer.save_dir)
+    best_pt = save_dir / "weights" / "best.pt"
     if best_pt.exists():
         save_target = Path(args.save_best)
         save_target.parent.mkdir(parents=True, exist_ok=True)

@@ -1,7 +1,0 @@
-path: D:\Python\ComputerVison\Flowers\flower_detector\data
-train: train/images
-val: valid/images
-nc: 1
-names:
-- flower
-test: test/images

@@ -87,7 +87,9 @@ class TwoStageFlowerPipeline:
         cls_conf: float = 0.45,
         min_box_size: int = 24,
     ) -> List[Dict[str, Any]]:
-        yolo_res = self.detector(img_bgr, conf=det_conf, nms=False, verbose=False)[0]
+        yolo_res = self.detector(
+            img_bgr, conf=det_conf, iou=det_iou, agnostic_nms=True, verbose=False
+        )[0]
 
         valid_boxes = []
         tensors = []
