@@ -38,6 +38,28 @@ def inspect_and_prepare_yaml(data_dir: Path) -> Path:
     return resolved_yaml
 
 
+def atomic_copy(src: Path, dst: Path):
+    """Copy qua file tạm rồi đổi tên để tránh hỏng file .pt trên Drive nếu Colab ngắt đột ngột."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dst.with_suffix(".tmp")
+    shutil.copy2(src, tmp)
+    os.replace(tmp, dst)
+
+
+def attach_drive_sync(model: YOLO, save_best: Path, save_last: Path):
+    """Tự động lưu last.pt và best_yolo.pt lên Google Drive ngay sau mỗi epoch."""
+    def _on_model_save(trainer):
+        last_src = Path(trainer.last)
+        best_src = Path(trainer.best)
+
+        if last_src.exists() and last_src.resolve() != save_last.resolve():
+            atomic_copy(last_src, save_last)
+        if best_src.exists() and best_src.resolve() != save_best.resolve():
+            atomic_copy(best_src, save_best)
+
+    model.add_callback("on_model_save", _on_model_save)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir", type=str, default=os.getenv("YOLO_DATA_DIR", "data"))
@@ -56,20 +78,23 @@ def main():
         help="Truyền --resume để tự tìm last.pt, hoặc --resume /duong/dan/last.pt",
     )
     parser.add_argument("--save-best", type=str, default=os.getenv("YOLO_SAVE_BEST", "checkpoints/best_yolo.pt"))
+    parser.add_argument("--save-last", type=str, default=os.getenv("YOLO_SAVE_LAST", "checkpoints/last.pt"))
     args = parser.parse_args()
 
-    # Luôn tạo lại data_resolved.yaml trước (tránh lỗi thiếu file yaml khi resume trên Colab mới)
     resolved_yaml = inspect_and_prepare_yaml(Path(args.data_dir))
     project_dir = Path(args.project).resolve()
+    save_best = Path(args.save_best).resolve()
+    save_last = Path(args.save_last).resolve()
 
-    # Xác định file checkpoint nếu bật chế độ tiếp tục train
+    # Tìm checkpoint để train tiếp (ưu tiên file last.pt trong checkpoints/ trên Drive)
     resume_ckpt = None
     if args.resume == "auto":
-        candidate = project_dir / args.name / "weights" / "last.pt"
-        if candidate.exists():
-            resume_ckpt = candidate
-        else:
-            print(f"Chưa tìm thấy {candidate} -> Bắt đầu train mới từ đầu.")
+        for candidate in [save_last, project_dir / args.name / "weights" / "last.pt"]:
+            if candidate.exists():
+                resume_ckpt = candidate
+                break
+        if resume_ckpt is None:
+            print(f"Chưa có last.pt tại {save_last} -> Bắt đầu train mới từ đầu.")
     elif args.resume:
         resume_ckpt = Path(args.resume).resolve()
         if not resume_ckpt.exists():
@@ -78,10 +103,12 @@ def main():
     if resume_ckpt is not None:
         print(f"\n=== TIẾP TỤC HUẤN LUYỆN TỪ: {resume_ckpt} ===")
         model = YOLO(str(resume_ckpt))
+        attach_drive_sync(model, save_best, save_last)
         model.train(resume=True)
     else:
         print(f"\n=== BẮT ĐẦU HUẤN LUYỆN MỚI ({args.weights}) ===")
         model = YOLO(args.weights)
+        attach_drive_sync(model, save_best, save_last)
         model.train(
             data=str(resolved_yaml),
             epochs=args.epochs,
@@ -110,18 +137,13 @@ def main():
             exist_ok=True,
         )
 
-    save_dir = Path(model.trainer.save_dir)
-    best_pt = save_dir / "weights" / "best.pt"
-    if best_pt.exists():
-        save_target = Path(args.save_best)
-        save_target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(best_pt, save_target)
-        print(f"\nĐã lưu model YOLO tốt nhất tại: {save_target}")
+    if save_best.exists():
+        print(f"\nModel tốt nhất đã được lưu tại: {save_best}")
+        print(f"Model gần nhất đã được lưu tại: {save_last}")
 
-        best_model = YOLO(str(best_pt))
         if (Path(args.data_dir) / "test" / "images").exists():
             print("\n=== Đánh giá trên tập Test ===")
-            best_model.val(data=str(resolved_yaml), split="test")
+            YOLO(str(save_best)).val(data=str(resolved_yaml), split="test")
 
 
 if __name__ == "__main__":
